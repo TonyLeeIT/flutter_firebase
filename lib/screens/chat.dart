@@ -53,8 +53,14 @@ class _ChatState extends State<Chat> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text("Message"),
-          _showMessage(context),
+          Expanded(
+              child: Container(
+            child: SingleChildScrollView(
+              physics: ScrollPhysics(),
+              reverse: true,
+              child: _showMessage(context),
+            ),
+          )),
           Row(
             children: [
               Expanded(
@@ -72,7 +78,8 @@ class _ChatState extends State<Chat> {
                     if (msg.text.isNotEmpty) {
                       storeMsg.collection("Messages").doc().set({
                         "message": msg.text.trim(),
-                        "user": loginUser!.email.toString()
+                        "user": loginUser!.email.toString(),
+                        "time": DateTime.now()
                       });
                       msg.clear();
                     }
@@ -89,29 +96,53 @@ class _ChatState extends State<Chat> {
   }
 
   Widget _showMessage(BuildContext context) {
-    return StreamBuilder(
-        stream: FirebaseFirestore.instance.collection("Messages").snapshots(),
-        builder: (context, snapshot) {
+    return StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection("Messages")
+            .orderBy("time")
+            .snapshots(),
+        builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
           if (!snapshot.hasData) {
             return Center(
               child: CircularProgressIndicator(),
             );
-          } else{
-            return ListView.builder(
-                itemCount: snapshot.data!.length,
-                shrinkWrap: true,
-                primary: true,
-                itemBuilder: (context, i) {
-                  QueryDocumentSnapshot x = snapshot.data!.docs[i];
-                  return ListTile(
-                    title: Column(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      children: [Text(x["messages"])],
-                    ),
-                  );
-                });
           }
-
+          return Container(
+            child: MediaQuery.removePadding(
+                context: context,
+                removeTop: true,
+                child: ListView.builder(
+                    itemCount: snapshot.data!.docs.length,
+                    physics: ScrollPhysics(),
+                    shrinkWrap: true,
+                    primary: true,
+                    itemBuilder: (context, i) {
+                      QueryDocumentSnapshot x = snapshot.data!.docs[i];
+                      return ListTile(
+                        title: Column(
+                          crossAxisAlignment: loginUser!.email == x["user"]
+                              ? CrossAxisAlignment.end
+                              : CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                  vertical: 5, horizontal: 10),
+                              decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(30),
+                                  color: loginUser!.email == x["user"]
+                                      ? Colors.blue
+                                      : Colors.deepOrangeAccent),
+                              child: Text(
+                                x["message"],
+                                style: TextStyle(
+                                    fontSize: 20, color: Colors.white),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    })),
+          );
         });
   }
 }
